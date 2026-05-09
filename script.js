@@ -46,15 +46,40 @@ async function initCamera() {
 }
 
 // ================= CORE LOGIC =================
-function loop() {
+let lastScanTime = 0; // เก็บเวลาที่สแกนล่าสุด
+
+function loop(time) {
     if (state === "COMPLETED") return;
+
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvasElement.width = video.videoWidth; canvasElement.height = video.videoHeight;
+        canvasElement.width = video.videoWidth; 
+        canvasElement.height = video.videoHeight;
         canvas.drawImage(video, 0, 0);
+        
         if (state === "SCAN_QR") {
-            const code = jsQR(canvas.getImageData(0,0,canvasElement.width,canvasElement.height).data, canvasElement.width, canvasElement.height);
-            if (code) handleQRCode(code.data);
+            // --- ส่วนที่แก้ไขเพื่อลด Lag ---
+            // สแกนทุกๆ 250ms (4 ครั้งต่อวินาที) แทนการสแกนทุกเฟรม
+            if (time - lastScanTime > 250) { 
+                lastScanTime = time;
+
+                // สร้าง Canvas ขนาดเล็ก (Thumbnail) เพื่อใช้คำนวณ QR โดยเฉพาะ
+                // การลดขนาดภาพลงเหลือ 1/2 หรือ 1/4 จะทำให้ jsQR ทำงานเร็วขึ้นมหาศาล
+                const tempCanvas = document.createElement('canvas');
+                const scale = 0.5; // ย่อขนาดลง 50%
+                tempCanvas.width = canvasElement.width * scale;
+                tempCanvas.height = canvasElement.height * scale;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(canvasElement, 0, 0, tempCanvas.width, tempCanvas.height);
+
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const code = jsQR(imageData.data, tempCanvas.width, tempCanvas.height, {
+                    inversionAttempts: "dontInvert", // ลดการคำนวณสีตรงข้าม
+                });
+
+                if (code) handleQRCode(code.data);
+            }
         } else if (state === "SNAP_BOTTLE") {
+            // วิเคราะห์สีปัสสาวะ (อันนี้กินสเปกน้อย ทำบ่อยได้)
             analyzeColor();
         }
     }
