@@ -35,7 +35,7 @@ async function autoStartCamera() {
 async function initCamera() {
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment", width: { ideal: 720 }, height: { ideal: 720 } } 
+            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
         video.srcObject = cameraStream;
         await video.play();
