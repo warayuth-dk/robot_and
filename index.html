@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>UrineScan Pro — ปตอ.2 พัน.2</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-text">🔬 ปตอ.2 พัน.2</div>
+    <div class="header-time">
+        <div id="currentDate" class="current-date">-- -- ----</div>
+        <div id="clock" class="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Camera & Data Card -->
+  <div class="card main-card">
+    <div id="stepTag" class="status-tag active">STEP 1: SCAN QR CODE</div>
+    
+    <!-- Viewfinder Area -->
+    <div class="viewfinder" id="vFrame">
+      <video id="video" playsinline webkit-playsinline autoplay muted></video>
+      <canvas id="canvas"></canvas>
+
+      <!-- 🔴 Live Status Badge (Small) -->
+      <div id="liveStatusBadge" class="live-status-badge">
+        <div id="liveDot" class="live-dot"></div>
+        <span id="liveText">วิเคราะห์...</span>
+      </div>
+
+      <button id="btnFlash" class="flash-toggle" onclick="toggleFlash()">💡 แฟลช</button>
+      <div class="bottle-guide" id="bottleGuide"><div class="guide-text">วางขวดในกรอบนี้</div></div>
+      
+      <div id="instructionOverlay">
+          <button class="btn btn-primary" onclick="initCamera()">🎥 เปิดกล้อง</button>
+      </div>
+    </div>
+
+    <!-- 🟢 DATA POPUP OVERLAY (มาแทนที่กล้องหลังถ่ายรูป) -->
+    <div id="dataPopup" class="data-popup">
+        <div class="popup-photo-wrap">
+            <img id="photoSnapshot" src="" alt="Captured">
+            <div id="popupColorBadge" class="popup-color-badge">--</div>
+        </div>
+        <div class="popup-form">
+            <p class="target-info">ทหาร: <span id="targetNameDisplay">--</span></p>
+            <label class="popup-label">🌡️ กรอกอุณหภูมิร่างกาย (°C)</label>
+            <input type="number" id="modalBodyTemp" class="input-field big-input" 
+                   placeholder="36.5" step="0.1" min="35" max="42" inputmode="decimal">
+            <div class="popup-btns">
+                <button class="btn btn-reset" onclick="resetApp()">↺ ถ่ายใหม่</button>
+                <button class="btn btn-save" id="btnConfirmSave" onclick="confirmSave()">💾 บันทึกข้อมูล</button>
+            </div>
+            <div id="syncSpinner" class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Buttons -->
+    <button class="btn btn-snap" id="btnSnap" onclick="takePhoto()">📸 ถ่ายภาพและบันทึก</button>
+    <div id="displayUserName" class="mini-info">รอสแกน QR CODE...</div>
+    <div id="colorResult" style="display:none;"></div> <!-- ซ่อนไว้ใช้เก็บค่า Logic -->
+  </div>
+
+  <!-- Recent Logs Table (ห้ามแก้ส่วนนี้) -->
+  <div class="card history-section">
+    <p class="history-title">📋 RECENT LOGS (TOP 10)</p>
+    <table>
+      <thead>
+        <tr><th>วันที่</th><th>เวลา</th><th>เลขที่</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="6" style="text-align:center; color:var(--muted)">ไม่มีข้อมูล</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
