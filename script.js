@@ -34,17 +34,29 @@ async function autoStartCamera() {
 
 async function initCamera() {
     try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
-        });
+        const constraints = { 
+            video: { 
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                // เพิ่มคำสั่งโฟกัส (สำหรับ Android บางรุ่น)
+                focusMode: { ideal: "continuous" }
+            } 
+        };
+        
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = cameraStream;
+        
+        // Android Chrome ต้องการการเล่นวิดีโอที่ชัดเจน
+        video.setAttribute("playsinline", true); 
         await video.play();
+        
         document.getElementById("instructionOverlay").style.display = "none";
-
         state = "SCAN_QR";
-        document.body.setAttribute('data-state', 'SCAN_QR'); // เพิ่มบรรทัดนี้
         requestAnimationFrame(loop);
-    } catch(e) { alert("เปิดกล้องไม่ได้"); }
+    } catch(e) { 
+        alert("กล้องมีปัญหา: " + e.message); 
+    }
 }
 
 // ================= CORE LOGIC =================
@@ -54,31 +66,31 @@ function loop(time) {
     if (state === "COMPLETED") return;
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // 1. วาดภาพจากกล้องลง Canvas หลัก (ความละเอียดเต็มเพื่อความชัด)
-        canvasElement.width = video.videoWidth; 
-        canvasElement.height = video.videoHeight;
-        canvas.drawImage(video, 0, 0);
+        // สำคัญมาก: ปรับขนาด Canvas ให้เท่ากับขนาดวิดีโอที่ส่งมาจากกล้องจริงๆ
+        if (canvasElement.width !== video.videoWidth) {
+            canvasElement.width = video.videoWidth;
+            canvasElement.height = video.videoHeight;
+        }
+
+        // วาดภาพจากกล้อง
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
         
         if (state === "SCAN_QR") {
-            // สแกนทุกๆ 150ms (เพิ่มความถี่จาก 250ms เป็น 150ms เพื่อให้รู้สึกไวขึ้น)
-            if (time - lastScanTime > 150) { 
+            // สแกนทุก 200ms (ไม่ช้าไม่เร็วเกินไป)
+            if (time - lastScanTime > 200) { 
                 lastScanTime = time;
 
-                // 2. กำหนดบริเวณที่จะสแกน (เฉพาะสี่เหลี่ยมจตุรัสตรงกลางจอ)
-                // การสแกนแค่พื้นที่ 300x300 หรือ 400x400 จะเร็วกว่าสแกนทั้งจอมาก
-                const scanSize = Math.min(canvasElement.width, canvasElement.height) * 0.7; // ใช้ 70% ของด้านที่สั้นที่สุด
-                const sx = (canvasElement.width - scanSize) / 2;
-                const sy = (canvasElement.height - scanSize) / 2;
-
-                // ดึงข้อมูลภาพเฉพาะส่วนกลาง
-                const imageData = canvas.getImageData(sx, sy, scanSize, scanSize);
+                // ดึงข้อมูลภาพทั้งเฟรม
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
                 
-                // 3. ส่งไปให้ jsQR (โดยไม่ต้องย่อขนาดภาพ เพื่อรักษาความคมชัด)
+                // ใช้ Library jsQR สแกน
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
+                    inversionAttempts: "dontInvert", // เปลี่ยนเป็น "attemptBoth" ถ้าใช้ในที่มืดแล้วไม่ติด
                 });
 
                 if (code) {
+                    // ถ้าเจอ QR ให้สั่นและจัดการข้อมูล
+                    if ("vibrate" in navigator) navigator.vibrate(100);
                     handleQRCode(code.data);
                 }
             }
@@ -88,7 +100,6 @@ function loop(time) {
     }
     requestAnimationFrame(loop);
 }
-
 function handleQRCode(data) {
     try {
         const url = new URL(data);
