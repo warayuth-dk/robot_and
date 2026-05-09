@@ -40,46 +40,49 @@ async function initCamera() {
         video.srcObject = cameraStream;
         await video.play();
         document.getElementById("instructionOverlay").style.display = "none";
+
         state = "SCAN_QR";
+        document.body.setAttribute('data-state', 'SCAN_QR'); // เพิ่มบรรทัดนี้
         requestAnimationFrame(loop);
     } catch(e) { alert("เปิดกล้องไม่ได้"); }
 }
 
 // ================= CORE LOGIC =================
-let lastScanTime = 0; // เก็บเวลาที่สแกนล่าสุด
+let lastScanTime = 0;
 
 function loop(time) {
     if (state === "COMPLETED") return;
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // 1. วาดภาพจากกล้องลง Canvas หลัก (ความละเอียดเต็มเพื่อความชัด)
         canvasElement.width = video.videoWidth; 
         canvasElement.height = video.videoHeight;
         canvas.drawImage(video, 0, 0);
         
         if (state === "SCAN_QR") {
-            // --- ส่วนที่แก้ไขเพื่อลด Lag ---
-            // สแกนทุกๆ 250ms (4 ครั้งต่อวินาที) แทนการสแกนทุกเฟรม
-            if (time - lastScanTime > 250) { 
+            // สแกนทุกๆ 150ms (เพิ่มความถี่จาก 250ms เป็น 150ms เพื่อให้รู้สึกไวขึ้น)
+            if (time - lastScanTime > 150) { 
                 lastScanTime = time;
 
-                // สร้าง Canvas ขนาดเล็ก (Thumbnail) เพื่อใช้คำนวณ QR โดยเฉพาะ
-                // การลดขนาดภาพลงเหลือ 1/2 หรือ 1/4 จะทำให้ jsQR ทำงานเร็วขึ้นมหาศาล
-                const tempCanvas = document.createElement('canvas');
-                const scale = 0.5; // ย่อขนาดลง 50%
-                tempCanvas.width = canvasElement.width * scale;
-                tempCanvas.height = canvasElement.height * scale;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(canvasElement, 0, 0, tempCanvas.width, tempCanvas.height);
+                // 2. กำหนดบริเวณที่จะสแกน (เฉพาะสี่เหลี่ยมจตุรัสตรงกลางจอ)
+                // การสแกนแค่พื้นที่ 300x300 หรือ 400x400 จะเร็วกว่าสแกนทั้งจอมาก
+                const scanSize = Math.min(canvasElement.width, canvasElement.height) * 0.7; // ใช้ 70% ของด้านที่สั้นที่สุด
+                const sx = (canvasElement.width - scanSize) / 2;
+                const sy = (canvasElement.height - scanSize) / 2;
 
-                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                const code = jsQR(imageData.data, tempCanvas.width, tempCanvas.height, {
-                    inversionAttempts: "dontInvert", // ลดการคำนวณสีตรงข้าม
+                // ดึงข้อมูลภาพเฉพาะส่วนกลาง
+                const imageData = canvas.getImageData(sx, sy, scanSize, scanSize);
+                
+                // 3. ส่งไปให้ jsQR (โดยไม่ต้องย่อขนาดภาพ เพื่อรักษาความคมชัด)
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
                 });
 
-                if (code) handleQRCode(code.data);
+                if (code) {
+                    handleQRCode(code.data);
+                }
             }
         } else if (state === "SNAP_BOTTLE") {
-            // วิเคราะห์สีปัสสาวะ (อันนี้กินสเปกน้อย ทำบ่อยได้)
             analyzeColor();
         }
     }
@@ -95,6 +98,8 @@ function handleQRCode(data) {
         document.getElementById("displayUserName").innerText = `ทหาร: ${currentName} (${currentNumber})`;
         document.getElementById("targetNameDisplay").innerText = currentName;
         state = "SNAP_BOTTLE";
+        document.body.setAttribute('data-state', 'SNAP_BOTTLE'); // เพิ่มบรรทัดนี้
+        document.getElementById("qrGuide").style.display = "none"; // ปิดกรอบ QR
         document.getElementById("btnSnap").style.display = "flex";
         document.getElementById("bottleGuide").classList.add("show");
         document.getElementById("liveStatusBadge").classList.add("show");
