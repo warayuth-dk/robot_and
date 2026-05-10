@@ -181,12 +181,13 @@ function analyzeColor() {
 
 // ================= SNAP & SAVE =================
 function takePhoto() {
-    document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg', 0.8);
-    document.getElementById("dataPopup").classList.add("show");
-    document.getElementById("btnSnap").style.display = "none";
+    // 📸 บีบอัดรูปเป็น JPEG คุณภาพ 0.6 เพื่อความเร็วในการส่งข้อมูล
+    const photoData = canvasElement.toDataURL('image/jpeg', 0.6);
+    document.getElementById("photoSnapshot").src = photoData;
+    
     if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
     state = "COMPLETED";
-    setTimeout(() => document.getElementById("modalBodyTemp").focus(), 400);
+    showSavePopup();
 }
 
 async function confirmSave() {
@@ -201,7 +202,8 @@ async function confirmSave() {
         temp: temp, 
         level: currentLV, 
         status: LEVELS[currentLV].name, 
-        time: new Date().toLocaleTimeString('th-TH') 
+        time: new Date().toLocaleTimeString('th-TH'),
+        image: imageData // 🟢 ส่งรูปไปด้วย
     };
 
     try {
