@@ -12,9 +12,7 @@ const LEVELS = [
 let state = "IDLE", currentLV = 0, cameraStream = null;
 let currentNumber = "", currentName = "", currentBuble = "", isFlashOn = false;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
-// ระบบจัดการกล้อง
-let videoDevices = [];
-let currentDeviceIndex = 0;
+
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
@@ -36,54 +34,29 @@ async function autoStartCamera() {
 
 async function initCamera() {
     try {
-        // หยุด Stream เก่าถ้ามี
-        if (cameraStream) {
-            cameraStream.getTracks().forEach(track => track.stop());
-        }
-
-        // ขอสิทธิ์และหาจำนวนกล้อง (ทำครั้งแรก)
-        if (videoDevices.length === 0) {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            stream.getTracks().forEach(t => t.stop());
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            // กรองเฉพาะกล้องหลัง
-            videoDevices = devices.filter(d => d.kind === 'videoinput');
-        }
-
-        const selectedDevice = videoDevices[currentDeviceIndex];
         const constraints = { 
             video: { 
-                deviceId: selectedDevice ? { exact: selectedDevice.deviceId } : undefined,
-                facingMode: selectedDevice ? undefined : "environment",
+                facingMode: "environment",
                 width: { ideal: 1280 },
-                height: { ideal: 720 }
+                height: { ideal: 720 },
+                // เพิ่มคำสั่งโฟกัส (สำหรับ Android บางรุ่น)
+                focusMode: { ideal: "continuous" }
             } 
         };
-
+        
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = cameraStream;
+        
+        // Android Chrome ต้องการการเล่นวิดีโอที่ชัดเจน
+        video.setAttribute("playsinline", true); 
         await video.play();
-
-        // ตั้งค่าโฟกัส
-        const track = cameraStream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-        if (capabilities.focusMode?.includes('continuous')) {
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-        }
-
+        
         document.getElementById("instructionOverlay").style.display = "none";
         state = "SCAN_QR";
-        document.body.setAttribute('data-state', 'SCAN_QR');
         requestAnimationFrame(loop);
-    } catch(e) { alert("กล้องมีปัญหา: " + e.message); }
-}
-
-async function switchCamera() {
-    if (videoDevices.length <= 1) return;
-    currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
-    await initCamera();
-    // สั่นแจ้งเตือนว่าเปลี่ยนกล้องแล้ว
-    if ("vibrate" in navigator) navigator.vibrate(50);
+    } catch(e) { 
+        alert("กล้องมีปัญหา: " + e.message); 
+    }
 }
 
 // ================= CORE LOGIC =================
