@@ -34,25 +34,62 @@ async function autoStartCamera() {
 
 async function initCamera() {
     try {
+        // 1. ขออนุญาตใช้งานกล้องก่อน (เพื่อให้ได้สิทธิ์เข้าถึง Label ของกล้อง)
+        const initialStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        initialStream.getTracks().forEach(track => track.stop()); // ปิดตัวที่ขอสิทธิ์ไปก่อน
+
+        // 2. ค้นหารายการกล้องทั้งหมดในเครื่อง
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        let selectedDeviceId = null;
+
+        // 3. กรองหากล้องหลัง (Back/Rear)
+        const backCameras = videoDevices.filter(d => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('rear')
+        );
+
+        if (backCameras.length > 0) {
+            // พยายามหาตัวที่ไม่ใช่เลนส์ "ultra" หรือ "wide-angle" (ซึ่งมักจะเป็น 0.5x)
+            // โดยปกติกล้องหลักจะมีคำว่า "camera 0" หรือไม่มีคำว่า "ultra" อยู่เลย
+            const mainCamera = backCameras.find(c => 
+                !c.label.toLowerCase().includes('ultra') && 
+                !c.label.toLowerCase().includes('wide-angle')
+            );
+
+            // ถ้าเจอตัวที่ดูเหมือนเป็นกล้องหลักให้เลือกตัวนั้น ถ้าไม่เจอให้ใช้ตัวแรกของกล้องหลัง
+            selectedDeviceId = mainCamera ? mainCamera.deviceId : backCameras[0].deviceId;
+        }
+
+        // 4. ตั้งค่า Constraints ใหม่โดยระบุ deviceId
         const constraints = { 
             video: { 
-                facingMode: "environment",
+                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+                facingMode: selectedDeviceId ? undefined : "environment", // fallback
                 width: { ideal: 1280 },
-                height: { ideal: 720 },
-                // เพิ่มคำสั่งโฟกัส (สำหรับ Android บางรุ่น)
-                focusMode: { ideal: "continuous" }
+                height: { ideal: 720 }
             } 
         };
         
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = cameraStream;
         
-        // Android Chrome ต้องการการเล่นวิดีโอที่ชัดเจน
         video.setAttribute("playsinline", true); 
         await video.play();
         
+        // เปิดโหมด Auto Focus สำหรับ Android
+        const track = cameraStream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            await track.applyConstraints({
+                advanced: [{ focusMode: 'continuous' }]
+            });
+        }
+
         document.getElementById("instructionOverlay").style.display = "none";
         state = "SCAN_QR";
+        document.body.setAttribute('data-state', 'SCAN_QR');
         requestAnimationFrame(loop);
     } catch(e) { 
         alert("กล้องมีปัญหา: " + e.message); 
