@@ -368,6 +368,8 @@ async function confirmSave() {
   const selectedDept = localStorage.getItem("selected_department");
   if (!selectedDept) {
     alert("ไม่พบข้อมูลหน่วยงานปฏิบัติการ กรุณาเลือกหน่วยงานก่อน");
+    showDeptModal();
+    return;
   }
 
   const deptIndex = departmentsList.indexOf(selectedDept);
@@ -612,6 +614,14 @@ async function initDepartmentSelection() {
   }
 }
 
+function showDeptModal() {
+  const savedDept = localStorage.getItem("selected_department");
+  const select = document.getElementById("deptSelect");
+  if (select && savedDept) {
+    select.value = savedDept;
+  }
+  document.getElementById("deptModal").style.display = "flex";
+}
 
 function saveDepartment() {
   const select = document.getElementById("deptSelect");
