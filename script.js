@@ -1,15 +1,15 @@
 // ================= CONFIG & DATA =================
 const CONFIG_SHEET_URL = [
   "https://script.google.com/macros/s/AKfycbyBz5dqDwwVrgLCnEcavza0krwszulbGFUaZOtwDttrVb3G5AAHK3-TaIhh05bzDWLwYQ/exec",
-  "https://script.google.com/macros/s/AKfycbx9n8sXo7l3m1j2h5a9eXqj0ZtHkKz6n8u2b4/exec"
+  "https://script.google.com/macros/s/AKfycbx9n8sXo7l3m1j2h5a9eXqj0ZtHkKz6n8u2b4/exec",
 ]; // เปลี่ยน URL ตามต้องการ
 
 const LEVELS = [
-  { lv: 0, name: "ใส", color: "#ffffff" },          
-  { lv: 1, name: "เหลืองจาง", color: "#FEEFC6" },   
-  { lv: 2, name: "เหลือง", color: "#FDD771" },       
-  { lv: 3, name: "ส้ม/ขาดน้ำ", color: "#FFB300" },   
-  { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548" } 
+  { lv: 0, name: "ใส", color: "#ffffff" },
+  { lv: 1, name: "เหลืองจาง", color: "#FEEFC6" },
+  { lv: 2, name: "เหลือง", color: "#FDD771" },
+  { lv: 3, name: "ส้ม/ขาดน้ำ", color: "#FFB300" },
+  { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548" },
 ];
 
 let state = "IDLE"; // IDLE, SCAN_QR, SNAP_BOTTLE, COMPLETED
@@ -21,7 +21,7 @@ let currentNumber = "";
 let currentName = "";
 let currentBuble = "";
 let isFlashOn = false;
-let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
+let historyData = JSON.parse(localStorage.getItem("urine_history_v2") || "[]");
 
 // 🎥 ตัวเลือกกล้องหลายตัว
 let cameraMode = "main"; // "main" หรือ "wide"
@@ -32,14 +32,15 @@ const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
 
 // ================= INIT =================
-document.addEventListener('DOMContentLoaded', async () => {
-    renderHistory();
-    startClock();
-    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('th-TH');
-    initDepartmentSelection();
-    
-    // 🟢 ตรวจสอบกล้องที่มีอยู่ และแสดงปุ่มเปลี่ยนกล้องเมื่อมีกล้องที่สองที่มี
-    await initCameraDetection();
+document.addEventListener("DOMContentLoaded", async () => {
+  renderHistory();
+  startClock();
+  document.getElementById("currentDate").textContent =
+    new Date().toLocaleDateString("th-TH");
+  initDepartmentSelection();
+
+  // 🟢 ตรวจสอบกล้องที่มีอยู่ และแสดงปุ่มเปลี่ยนกล้องเมื่อมีกล้องที่สองที่มี
+  await initCameraDetection();
 });
 
 // 🟢 ตัวเริ่มต้นตรวจหากล้อง และแสดงปุ่มสลับกล้องถ้าหากมีกล้องที่สอง
@@ -47,21 +48,21 @@ async function initCameraDetection() {
   try {
     // ขอสิทธิ์กล้องครั้งแรก
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    stream.getTracks().forEach(track => track.stop());
-    
+    stream.getTracks().forEach((track) => track.stop());
+
     // ตรวจสอบกล้อง
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoCameras = devices.filter(d => d.kind === "videoinput");
-    
+    const videoCameras = devices.filter((d) => d.kind === "videoinput");
+
     availableCameras.main = await getMainCameraId();
     availableCameras.wide = await getWideCameraId();
-    
+
     console.log("🎥 ตรวจพบกล้อง:", {
       main: availableCameras.main ? "✓" : "✗",
       wide: availableCameras.wide ? "✓" : "✗",
-      totalCameras: videoCameras.length
+      totalCameras: videoCameras.length,
     });
-    
+
     // แสดงปุ่มสลับกล้องเฉพาะเมื่อมีกล้องที่สอง
     const btnSwitch = document.getElementById("btnCameraSwitch");
     if (btnSwitch) {
@@ -81,7 +82,9 @@ async function initCameraDetection() {
 async function initQRScanner() {
   // ตรวจสอบว่าไลบรารีสแกนโหลดเสร็จหรือไม่
   if (typeof Html5Qrcode === "undefined") {
-    alert("❌ ไม่สามารถรันระบบสแกนได้: ไลบรารี html5-qrcode โหลดไม่สำเร็จ\nกรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองรีโหลดหน้าเว็บใหม่อีกครั้ง");
+    alert(
+      "❌ ไม่สามารถรันระบบสแกนได้: ไลบรารี html5-qrcode โหลดไม่สำเร็จ\nกรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองรีโหลดหน้าเว็บใหม่อีกครั้ง",
+    );
     return;
   }
 
@@ -120,14 +123,14 @@ async function initQRScanner() {
         // 🟢 ไม่ระบุ qrbox เพื่อให้สแกนภาพเต็มเฟรม (Full Frame Scan)
         // ช่วยให้ผู้ใช้ถอยกล้องออกห่างในระยะที่เลนส์หลักโฟกัสได้คมชัด แล้วระบบยังสามารถสแกนอ่านค่าได้
         const config = { fps: 20 };
-        
+
         // ค้นหารหัสกล้องหลัก พร้อมระบุความละเอียดภาพแบบ Full HD (1920x1080) เพื่อให้ภาพ QR คมชัดที่สุด
         const cameraId = await getSelectedCameraId(); // 🟢 ใช้กล้องที่เลือก
         const cameraConfig = {
           deviceId: cameraId ? { exact: cameraId } : undefined,
           facingMode: cameraId ? undefined : "environment",
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          height: { ideal: 1080 },
         };
 
         await html5QrCodeInstance.start(
@@ -138,13 +141,24 @@ async function initQRScanner() {
           },
           (errorMessage) => {
             // ข้ามการแจ้งเตือน Error ทั่วไปในขณะสแกน
-          }
+          },
         );
         console.log("QR Scanner started.");
       }
     } catch (e) {
       console.error("QR Scanner initialization failed:", e);
-      alert("⚠️ เกิดข้อผิดพลาดในการเปิดกล้องสแกน QR:\n" + e.name + " - " + e.message + "\n\nคำแนะนำ: ตรวจสอบการอนุญาตสิทธิ์กล้องของเบราว์เซอร์");
+      // ลองดูว่า e.name คืออะไร
+      if (e.name === "NotAllowedError") {
+        alert("ผู้ใช้ปฏิเสธการเข้าถึงกล้อง");
+      } else if (e.name === "NotFoundError") {
+        alert("ไม่พบตัวฮาร์ดแวร์กล้อง");
+      } else if (e.name === "NotReadableError") {
+        alert("กล้องกำลังถูกแอปอื่นใช้งานอยู่");
+      } else if (e.name === "SecurityError") {
+        alert("ต้องใช้ HTTPS เท่านั้น");
+      } else {
+        alert("Error อื่นๆ: " + e.name + " - " + e.message);
+      }
       document.getElementById("instructionOverlay").style.display = "flex";
     }
   }, 300);
@@ -153,11 +167,12 @@ async function initQRScanner() {
 async function handleQRCode(data) {
   try {
     const url = new URL(data);
-    currentNumber = url.searchParams.get('Number') || "-";
-    currentName = url.searchParams.get('name') || "Unknown";
-    currentBuble = url.searchParams.get('Buble') || "-";
+    currentNumber = url.searchParams.get("Number") || "-";
+    currentName = url.searchParams.get("name") || "Unknown";
+    currentBuble = url.searchParams.get("Buble") || "-";
 
-    document.getElementById("displayUserName").innerText = `ทหาร: ${currentName} (${currentNumber} - ${currentBuble})`;
+    document.getElementById("displayUserName").innerText =
+      `ทหาร: ${currentName} (${currentNumber} - ${currentBuble})`;
     document.getElementById("targetNameDisplay").innerText = currentName;
 
     // 🟢 หยุดตัวสแกนเนอร์ของ html5-qrcode ทันที
@@ -165,7 +180,8 @@ async function handleQRCode(data) {
 
     // เปลี่ยนสเตทไปยังหน้าถ่ายรูปขวดปัสสาวะ
     state = "SNAP_BOTTLE";
-    document.getElementById("stepTag").textContent = "STEP 2: ถ่ายรูปขวดปัสสาวะ";
+    document.getElementById("stepTag").textContent =
+      "STEP 2: ถ่ายรูปขวดปัสสาวะ";
     document.getElementById("qrGuide").classList.remove("show");
     document.getElementById("bottleGuide").classList.add("show");
     document.getElementById("liveStatusBadge").classList.add("show");
@@ -184,16 +200,19 @@ async function handleQRCode(data) {
 function stopQRScanner() {
   return new Promise((resolve) => {
     if (html5QrCodeInstance && html5QrCodeInstance.isScanning) {
-      html5QrCodeInstance.stop().then(() => {
-        console.log("QR Scanner stopped.");
-        document.getElementById("qrScannerContainer").innerHTML = ""; // ล้าง HTML ในกล่องออกเพื่อเคลียร์สตรีม
-        html5QrCodeInstance = null; // 🟢 ล้างไอดีอินสแตนซ์เดิมออกเพื่อเปิดการรันใหม่หมดจด
-        resolve();
-      }).catch(err => {
-        console.error("Failed to stop QR Scanner:", err);
-        html5QrCodeInstance = null; // 🟢 ล้างเพื่อป้องกันการติดขัดสถานะค้าง
-        resolve(); // ปลดล็อกให้ไหลไปสเตปถัดไปแม้เกิดข้อผิดพลาด
-      });
+      html5QrCodeInstance
+        .stop()
+        .then(() => {
+          console.log("QR Scanner stopped.");
+          document.getElementById("qrScannerContainer").innerHTML = ""; // ล้าง HTML ในกล่องออกเพื่อเคลียร์สตรีม
+          html5QrCodeInstance = null; // 🟢 ล้างไอดีอินสแตนซ์เดิมออกเพื่อเปิดการรันใหม่หมดจด
+          resolve();
+        })
+        .catch((err) => {
+          console.error("Failed to stop QR Scanner:", err);
+          html5QrCodeInstance = null; // 🟢 ล้างเพื่อป้องกันการติดขัดสถานะค้าง
+          resolve(); // ปลดล็อกให้ไหลไปสเตปถัดไปแม้เกิดข้อผิดพลาด
+        });
     } else {
       resolve();
     }
@@ -256,9 +275,14 @@ async function startBottleCamera() {
     // กรณีพิเศษ: ลองเข้ากล้องแบบ Standard ทั่วไป
     try {
       const fallbackConstraints = {
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
       };
-      cameraStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+      cameraStream =
+        await navigator.mediaDevices.getUserMedia(fallbackConstraints);
       video.srcObject = cameraStream;
       await video.play();
       await applyAutofocus(cameraStream);
@@ -310,18 +334,22 @@ function drawVideoToCanvas() {
 
 // ================= COLOR ANALYZE (Lab Space) =================
 function rgbToLab(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-  g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-  b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+  g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+  b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
   let x = (r * 0.4124 + g * 0.3576 + b * 0.1805) * 100;
   let y = (r * 0.2126 + g * 0.7152 + b * 0.0722) * 100;
   let z = (r * 0.0193 + g * 0.1192 + b * 0.9505) * 100;
-  x /= 95.047; y /= 100.000; z /= 108.883;
-  x = (x > 0.008856) ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
-  y = (y > 0.008856) ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
-  z = (z > 0.008856) ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
-  return { l: (116 * y) - 16, a: 500 * (x - y), b: 200 * (y - z) };
+  x /= 95.047;
+  y /= 100.0;
+  z /= 108.883;
+  x = x > 0.008856 ? Math.pow(x, 1 / 3) : 7.787 * x + 16 / 116;
+  y = y > 0.008856 ? Math.pow(y, 1 / 3) : 7.787 * y + 16 / 116;
+  z = z > 0.008856 ? Math.pow(z, 1 / 3) : 7.787 * z + 16 / 116;
+  return { l: 116 * y - 16, a: 500 * (x - y), b: 200 * (y - z) };
 }
 
 function analyzeColor() {
@@ -341,8 +369,8 @@ function analyzeColor() {
   function getColorDist(color1, color2) {
     return Math.sqrt(
       Math.pow(color1.l - color2.l, 2) +
-      Math.pow(color1.a - color2.a, 2) +
-      Math.pow(color1.b - color2.b, 2)
+        Math.pow(color1.a - color2.a, 2) +
+        Math.pow(color1.b - color2.b, 2),
     );
   }
 
@@ -350,7 +378,7 @@ function analyzeColor() {
     { lv: 1, diff: getColorDist(urineLab, ref1) },
     { lv: 2, diff: getColorDist(urineLab, ref2) },
     { lv: 3, diff: getColorDist(urineLab, ref3) },
-    { lv: 4, diff: getColorDist(urineLab, ref4) }
+    { lv: 4, diff: getColorDist(urineLab, ref4) },
   ];
 
   diffs.sort((a, b) => a.diff - b.diff);
@@ -365,7 +393,8 @@ function analyzeColor() {
   const info = LEVELS[currentLV];
 
   // อัปเดตการแสดงผลเรดาร์สด
-  document.getElementById("liveText").innerText = `LV.${currentLV} - ${info.name}`;
+  document.getElementById("liveText").innerText =
+    `LV.${currentLV} - ${info.name}`;
   document.getElementById("liveDot").style.backgroundColor = info.color;
 }
 
@@ -374,8 +403,8 @@ function analyzeColor() {
 function takePhoto() {
   // บันทึกและวาดภาพล่าสุด
   drawVideoToCanvas();
-  
-  const photoData = canvasElement.toDataURL('image/jpeg', 0.6);
+
+  const photoData = canvasElement.toDataURL("image/jpeg", 0.6);
   document.getElementById("photoSnapshot").src = photoData;
 
   // 🟢 ปิดใช้งานสตรีมกล้องทั้งหมดทันทีเพื่อถอนทรัพยากรการแสดงผล
@@ -420,7 +449,9 @@ async function confirmSave() {
   }
 
   if (!targetUrl) {
-    alert(`ไม่พบ Google Sheet URL ที่ตรงกับหน่วยงานลำดับที่ ${deptIndex + 1} (${selectedDept})\nกรุณาเพิ่ม URL ในตัวแปร CONFIG_SHEET_URL ของสคริปต์`);
+    alert(
+      `ไม่พบ Google Sheet URL ที่ตรงกับหน่วยงานลำดับที่ ${deptIndex + 1} (${selectedDept})\nกรุณาเพิ่ม URL ในตัวแปร CONFIG_SHEET_URL ของสคริปต์`,
+    );
     return;
   }
 
@@ -473,7 +504,9 @@ async function toggleFlash() {
 
 function getAvgRGB(x, y, size) {
   const data = canvas.getImageData(x - size / 2, y - size / 2, size, size).data;
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
   for (let i = 0; i < data.length; i += 4) {
     r += data[i];
     g += data[i + 1];
@@ -531,7 +564,9 @@ async function getMainCameraId() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const videoDevices = devices.filter((d) => d.kind === "videoinput");
 
-  const hasLabels = videoDevices.some((d) => d.label && d.label.trim().length > 0);
+  const hasLabels = videoDevices.some(
+    (d) => d.label && d.label.trim().length > 0,
+  );
   if (!hasLabels) {
     return null; // ไม่มีสิทธิ์หรือ labels คืนค่า null เพื่อบังคับใช้ facingMode: "environment" แทน
   }
@@ -590,7 +625,9 @@ async function getWideCameraId() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const videoDevices = devices.filter((d) => d.kind === "videoinput");
 
-  const hasLabels = videoDevices.some((d) => d.label && d.label.trim().length > 0);
+  const hasLabels = videoDevices.some(
+    (d) => d.label && d.label.trim().length > 0,
+  );
   if (!hasLabels) {
     return null;
   }
@@ -620,7 +657,9 @@ async function getWideCameraId() {
   // ถ้าไม่มี wide ให้ลองหา ultra wide
   wideCamera = backCameras.find((d) => {
     const label = d.label.toLowerCase();
-    return label.includes("ultra") || label.includes("0.6") || label.includes("0.7");
+    return (
+      label.includes("ultra") || label.includes("0.6") || label.includes("0.7")
+    );
   });
 
   if (wideCamera) return wideCamera.deviceId;
@@ -637,7 +676,7 @@ async function getWideCameraId() {
 async function enumerateAllCameras() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const videoDevices = devices.filter((d) => d.kind === "videoinput");
-  
+
   console.log("📹 พบกล้องทั้งหมด:", videoDevices.length);
   videoDevices.forEach((d, idx) => {
     console.log(`  [${idx}] ${d.label} (${d.deviceId.substring(0, 10)}...)`);
@@ -649,13 +688,13 @@ async function enumerateAllCameras() {
 // 🟢 ตัวสลับกล้อง (Main <-> Wide)
 async function switchCamera() {
   cameraMode = cameraMode === "main" ? "wide" : "main";
-  
+
   // อัปเดตข้อความปุ่ม
   const btn = document.getElementById("btnCameraSwitch");
   if (btn) {
     btn.textContent = cameraMode === "main" ? "📷 Main (1x)" : "📷 Wide (0.5x)";
   }
-  
+
   // ถ้าอยู่ในโหมดกล้องอยู่แล้ว ให้สลับกล้องทันที
   if (state === "SNAP_BOTTLE") {
     await stopBottleCamera();
@@ -669,7 +708,7 @@ async function getSelectedCameraId() {
     const wideId = await getWideCameraId();
     if (wideId) return wideId;
   }
-  
+
   return await getMainCameraId();
 }
 
@@ -680,9 +719,12 @@ async function applyAutofocus(stream) {
   if (track) {
     try {
       const capabilities = track.getCapabilities();
-      if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+      if (
+        capabilities.focusMode &&
+        capabilities.focusMode.includes("continuous")
+      ) {
         await track.applyConstraints({
-          advanced: [{ focusMode: "continuous" }]
+          advanced: [{ focusMode: "continuous" }],
         });
         console.log("Continuous autofocus enabled!");
       }
@@ -694,16 +736,16 @@ async function applyAutofocus(stream) {
 
 // ================= DEPARTMENT SELECTION SYSTEM =================
 const DEPARTMENT_MAP = {
-  "482917": "หน่วย A",
-  "105638": "หน่วย B",
-  "764291": "หน่วย C",
-  "390584": "หน่วย D",
-  "827163": "หน่วย E",
-  "651029": "หน่วย F",
-  "214875": "หน่วย G",
-  "938406": "หน่วย H",
-  "570318": "หน่วย I",
-  "146792": "หน่วย J"
+  482917: "หน่วย A",
+  105638: "หน่วย B",
+  764291: "หน่วย C",
+  390584: "หน่วย D",
+  827163: "หน่วย E",
+  651029: "หน่วย F",
+  214875: "หน่วย G",
+  938406: "หน่วย H",
+  570318: "หน่วย I",
+  146792: "หน่วย J",
 };
 
 let departmentsList = [];
