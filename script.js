@@ -23,17 +23,58 @@ let currentBuble = "";
 let isFlashOn = false;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
 
+// 🎥 ตัวเลือกกล้องหลายตัว
+let cameraMode = "main"; // "main" หรือ "wide"
+let availableCameras = { main: null, wide: null };
+
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
 
 // ================= INIT =================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     renderHistory();
     startClock();
     document.getElementById('currentDate').textContent = new Date().toLocaleDateString('th-TH');
     initDepartmentSelection();
+    
+    // 🟢 ตรวจสอบกล้องที่มีอยู่ และแสดงปุ่มเปลี่ยนกล้องเมื่อมีกล้องที่สองที่มี
+    await initCameraDetection();
 });
+
+// 🟢 ตัวเริ่มต้นตรวจหากล้อง และแสดงปุ่มสลับกล้องถ้าหากมีกล้องที่สอง
+async function initCameraDetection() {
+  try {
+    // ขอสิทธิ์กล้องครั้งแรก
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach(track => track.stop());
+    
+    // ตรวจสอบกล้อง
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoCameras = devices.filter(d => d.kind === "videoinput");
+    
+    availableCameras.main = await getMainCameraId();
+    availableCameras.wide = await getWideCameraId();
+    
+    console.log("🎥 ตรวจพบกล้อง:", {
+      main: availableCameras.main ? "✓" : "✗",
+      wide: availableCameras.wide ? "✓" : "✗",
+      totalCameras: videoCameras.length
+    });
+    
+    // แสดงปุ่มสลับกล้องเฉพาะเมื่อมีกล้องที่สอง
+    const btnSwitch = document.getElementById("btnCameraSwitch");
+    if (btnSwitch) {
+      if (availableCameras.wide) {
+        btnSwitch.style.display = "block";
+      } else {
+        btnSwitch.style.display = "none"; // ซ่อนปุ่มถ้าไม่มีกล้องที่สอง
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ ไม่สามารถตรวจหากล้องได้:", err);
+  }
+}
 
 // ================= QR SCANNER SYSTEM (html5-qrcode) =================
 
@@ -81,7 +122,7 @@ async function initQRScanner() {
         const config = { fps: 20 };
         
         // ค้นหารหัสกล้องหลัก พร้อมระบุความละเอียดภาพแบบ Full HD (1920x1080) เพื่อให้ภาพ QR คมชัดที่สุด
-        const cameraId = await getMainCameraId();
+        const cameraId = await getSelectedCameraId(); // 🟢 ใช้กล้องที่เลือก
         const cameraConfig = {
           deviceId: cameraId ? { exact: cameraId } : undefined,
           facingMode: cameraId ? undefined : "environment",
@@ -169,13 +210,13 @@ async function startBottleCamera() {
     document.getElementById("video").style.display = "block";
 
     const isAndroid = /Android/i.test(navigator.userAgent);
-    const mainId = await getMainCameraId();
+    const selectedId = await getSelectedCameraId(); // 🟢 ใช้กล้องที่เลือก
 
     const constraints = isAndroid
       ? {
-          video: mainId
+          video: selectedId
             ? {
-                deviceId: { exact: mainId },
+                deviceId: { exact: selectedId },
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
                 frameRate: { ideal: 24 },
@@ -188,9 +229,9 @@ async function startBottleCamera() {
               },
         }
       : {
-          video: mainId
+          video: selectedId
             ? {
-                deviceId: { exact: mainId },
+                deviceId: { exact: selectedId },
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
               }
@@ -542,6 +583,94 @@ async function getMainCameraId() {
   }
 
   return backCameras[0] ? backCameras[0].deviceId : null;
+}
+
+// 🟢 ตัวกรองกล้องมุมกว้าง (Wide-angle) ของ Samsung A57
+async function getWideCameraId() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter((d) => d.kind === "videoinput");
+
+  const hasLabels = videoDevices.some((d) => d.label && d.label.trim().length > 0);
+  if (!hasLabels) {
+    return null;
+  }
+
+  let backCameras = videoDevices.filter((d) => {
+    const label = d.label.toLowerCase();
+    return (
+      label.includes("back") ||
+      label.includes("rear") ||
+      label.includes("camera 0") ||
+      label.includes("main")
+    );
+  });
+
+  if (backCameras.length < 2) {
+    return null; // ไม่มีกล้องที่สอง
+  }
+
+  // ค้นหากล้องมุมกว้าง
+  let wideCamera = backCameras.find((d) => {
+    const label = d.label.toLowerCase();
+    return label.includes("wide") || label.includes("0.5");
+  });
+
+  if (wideCamera) return wideCamera.deviceId;
+
+  // ถ้าไม่มี wide ให้ลองหา ultra wide
+  wideCamera = backCameras.find((d) => {
+    const label = d.label.toLowerCase();
+    return label.includes("ultra") || label.includes("0.6") || label.includes("0.7");
+  });
+
+  if (wideCamera) return wideCamera.deviceId;
+
+  // ถ้าเป็น Samsung A57 ลองใช้กล้องที่ 2 (มักจะเป็น wide)
+  if (backCameras.length > 1) {
+    return backCameras[1].deviceId;
+  }
+
+  return null;
+}
+
+// 🟢 ตัวสแกนกล้องที่มีจำนวนเท่าไหร่
+async function enumerateAllCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter((d) => d.kind === "videoinput");
+  
+  console.log("📹 พบกล้องทั้งหมด:", videoDevices.length);
+  videoDevices.forEach((d, idx) => {
+    console.log(`  [${idx}] ${d.label} (${d.deviceId.substring(0, 10)}...)`);
+  });
+
+  return videoDevices;
+}
+
+// 🟢 ตัวสลับกล้อง (Main <-> Wide)
+async function switchCamera() {
+  cameraMode = cameraMode === "main" ? "wide" : "main";
+  
+  // อัปเดตข้อความปุ่ม
+  const btn = document.getElementById("btnCameraSwitch");
+  if (btn) {
+    btn.textContent = cameraMode === "main" ? "📷 Main (1x)" : "📷 Wide (0.5x)";
+  }
+  
+  // ถ้าอยู่ในโหมดกล้องอยู่แล้ว ให้สลับกล้องทันที
+  if (state === "SNAP_BOTTLE") {
+    await stopBottleCamera();
+    await startBottleCamera();
+  }
+}
+
+// 🟢 ตัวเลือกกล้องโดยใช้ cameraMode
+async function getSelectedCameraId() {
+  if (cameraMode === "wide") {
+    const wideId = await getWideCameraId();
+    if (wideId) return wideId;
+  }
+  
+  return await getMainCameraId();
 }
 
 // 🟢 ตัวสั่งโฟกัสต่อเนื่อง
