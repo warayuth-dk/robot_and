@@ -15,8 +15,7 @@ const LEVELS = [
 let state = "IDLE"; // IDLE, SCAN_QR, SNAP_BOTTLE, COMPLETED
 let currentLV = 0;
 let cameraStream = null;
-let html5QrCodeInstance = null; // Instance ตัวสแกนเนอร์ของ html5-qrcode
-
+let html5QrCodeInstance = null; // Instance ตัวสแกนเนอร์ของ html5-qrcodelet isQRInitializing = false; // 🟢 ป้องกันการเรียก initQRScanner หลายครั้ง
 let currentNumber = "";
 let currentName = "";
 let currentBuble = "";
@@ -77,16 +76,34 @@ async function initCameraDetection() {
 // ================= QR SCANNER SYSTEM (html5-qrcode) =================
 
 async function initQRScanner() {
+  // 🟢 ป้องกันการเรียก initialize หลายครั้ง
+  if (isQRInitializing) {
+    console.warn("⚠️ QR Scanner ยังอยู่ระหว่างการเตรียมการ กรุณารอสักครู่");
+    return;
+  }
+  
+  isQRInitializing = true;
+  
   // ตรวจสอบว่าไลบรารีสแกนโหลดเสร็จหรือไม่
   if (typeof Html5Qrcode === "undefined") {
     alert(
       "❌ ไม่สามารถรันระบบสแกนได้: ไลบรารี html5-qrcode โหลดไม่สำเร็จ\nกรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองรีโหลดหน้าเว็บใหม่อีกครั้ง",
     );
+    isQRInitializing = false;
     return;
   }
 
   // เคลียร์กล้องตัวสแน็ปขวดปัสสาวะก่อนหน้า (ถ้าค้างอยู่)
-  stopBottleCamera();
+  await stopBottleCamera();
+  
+  // ป้องกันการเรียก start ซ้ำ โดยต้อง stop ก่อน
+  if (html5QrCodeInstance && html5QrCodeInstance.isScanning) {
+    try {
+      await html5QrCodeInstance.stop();
+    } catch (err) {
+      console.warn("ไม่สามารถ stop scanner ที่เก่า:", err);
+    }
+  }
 
   state = "SCAN_QR";
   document.getElementById("stepTag").textContent = "STEP 1: SCAN QR CODE";
@@ -141,8 +158,9 @@ async function initQRScanner() {
           },
         );
         console.log("QR Scanner started.");
-      }
+        isQRInitializing = false; // 🟢 เสร็จแล้ว
     } catch (e) {
+      isQRInitializing = false; // 🟢 เสร็จแล้ว แม้เกิดข้อผิดพลาด
       console.error("QR Scanner initialization failed:", e);
       // ลองดูว่า e.name คืออะไร
       if (e.name === "NotAllowedError") {
