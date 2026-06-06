@@ -46,11 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 // 🟢 ตัวเริ่มต้นตรวจหากล้อง และแสดงปุ่มสลับกล้องถ้าหากมีกล้องที่สอง
 async function initCameraDetection() {
   try {
-    // ขอสิทธิ์กล้องครั้งแรก
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    stream.getTracks().forEach((track) => track.stop());
-
-    // ตรวจสอบกล้อง
+    // เพียงแค่ check enumerateDevices ไม่ต้องขอ permission ทำให้เกิด constraint error
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoCameras = devices.filter((d) => d.kind === "videoinput");
 
@@ -74,6 +70,7 @@ async function initCameraDetection() {
     }
   } catch (err) {
     console.warn("⚠️ ไม่สามารถตรวจหากล้องได้:", err);
+    // ตรวจสอบกล้องใหม่เมื่อผู้ใช้ขออนุญาต
   }
 }
 
