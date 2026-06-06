@@ -157,7 +157,9 @@ async function initQRScanner() {
       } else if (e.name === "SecurityError") {
         alert("ต้องใช้ HTTPS เท่านั้น");
       } else {
-        alert("Error อื่นๆ: " + e.name + " - " + e.message);
+        const errorName = e.name || typeof e;
+        const errorMsg = e.message || String(e) || "ข้อมูลข้อผิดพลาดไม่ชัดเจน";
+        alert("Error อื่นๆ: " + errorName + " - " + errorMsg);
       }
       document.getElementById("instructionOverlay").style.display = "flex";
     }
