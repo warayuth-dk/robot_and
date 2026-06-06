@@ -76,6 +76,8 @@ async function initCameraDetection() {
 // ================= QR SCANNER SYSTEM (html5-qrcode) =================
 
 async function initQRScanner() {
+  console.log("🔘 initQRScanner ถูกเรียก, isQRInitializing:", isQRInitializing);
+  
   // 🟢 ป้องกันการเรียก initialize หลายครั้ง
   if (isQRInitializing) {
     console.warn("⚠️ QR Scanner ยังอยู่ระหว่างการเตรียมการ กรุณารอสักครู่");
@@ -83,25 +85,33 @@ async function initQRScanner() {
   }
   
   isQRInitializing = true;
+  console.log("✅ ตั้งค่า isQRInitializing = true");
   
   // ตรวจสอบว่าไลบรารีสแกนโหลดเสร็จหรือไม่
   if (typeof Html5Qrcode === "undefined") {
+    console.error("❌ Html5Qrcode undefined!");
     alert(
       "❌ ไม่สามารถรันระบบสแกนได้: ไลบรารี html5-qrcode โหลดไม่สำเร็จ\nกรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองรีโหลดหน้าเว็บใหม่อีกครั้ง",
     );
     isQRInitializing = false;
     return;
   }
+  
+  console.log("✅ Html5Qrcode loaded");
 
   // เคลียร์กล้องตัวสแน็ปขวดปัสสาวะก่อนหน้า (ถ้าค้างอยู่)
+  console.log("🎥 Stopping bottle camera...");
   await stopBottleCamera();
+  console.log("✅ Bottle camera stopped");
   
   // ป้องกันการเรียก start ซ้ำ โดยต้อง stop ก่อน
   if (html5QrCodeInstance && html5QrCodeInstance.isScanning) {
+    console.log("⏹️ Stopping old QR scanner...");
     try {
       await html5QrCodeInstance.stop();
+      console.log("✅ Old QR scanner stopped");
     } catch (err) {
-      console.warn("ไม่สามารถ stop scanner ที่เก่า:", err);
+      console.warn("⚠️ ไม่สามารถ stop scanner ที่เก่า:", err);
     }
   }
 
@@ -128,18 +138,24 @@ async function initQRScanner() {
   // หน่วงเวลาเล็กน้อย (300ms) เพื่อรอให้เบราว์เซอร์จัดวางเลย์เอาท์และรอให้ระบบปฏิบัติการปล่อยสิทธิ์กล้องเดิม
   // ช่วยป้องกันปัญหาการแจ้งเตือนเรื่องความกว้างความสูงเป็น 0 (Width/Height 0px error) บนมือถือบางรุ่น
   setTimeout(async () => {
+    console.log("⏱️ Timeout callback (300ms) กำลังรัน...");
     try {
       if (!html5QrCodeInstance) {
+        console.log("📱 สร้าง Html5Qrcode instance ใหม่");
         html5QrCodeInstance = new Html5Qrcode("qrScannerContainer");
       }
 
+      console.log("📹 isScanning?", html5QrCodeInstance.isScanning);
       if (!html5QrCodeInstance.isScanning) {
         // 🟢 ไม่ระบุ qrbox เพื่อให้สแกนภาพเต็มเฟรม (Full Frame Scan)
         // ช่วยให้ผู้ใช้ถอยกล้องออกห่างในระยะที่เลนส์หลักโฟกัสได้คมชัด แล้วระบบยังสามารถสแกนอ่านค่าได้
         const config = { fps: 20 };
 
         // ค้นหารหัสกล้องหลัก พร้อมระบุความละเอียดภาพแบบ Full HD (1920x1080) เพื่อให้ภาพ QR คมชัดที่สุด
+        console.log("🔍 ค้นหากล้องที่เลือก...");
         const cameraId = await getSelectedCameraId(); // 🟢 ใช้กล้องที่เลือก
+        console.log("📷 Camera ID:", cameraId ? cameraId.substring(0, 10) + "..." : "ไม่มี (default)");
+        
         const cameraConfig = {
           deviceId: cameraId ? { exact: cameraId } : undefined,
           facingMode: cameraId ? undefined : "environment",
@@ -147,6 +163,7 @@ async function initQRScanner() {
           height: { ideal: 1080 },
         };
 
+        console.log("🚀 เรียก html5QrCodeInstance.start()...");
         await html5QrCodeInstance.start(
           cameraConfig,
           config,
@@ -157,8 +174,12 @@ async function initQRScanner() {
             // ข้ามการแจ้งเตือน Error ทั่วไปในขณะสแกน
           },
         );
-        console.log("QR Scanner started.");
+        console.log("✅ QR Scanner started successfully.");
         isQRInitializing = false; // 🟢 เสร็จแล้ว
+      } else {
+        console.warn("⚠️ Scanner กำลังทำงานอยู่แล้ว");
+        isQRInitializing = false;
+      }
     } catch (e) {
       isQRInitializing = false; // 🟢 เสร็จแล้ว แม้เกิดข้อผิดพลาด
       console.error("QR Scanner initialization failed:", e);
